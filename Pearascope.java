@@ -24,6 +24,7 @@ public class Pearascope {
                 "/RealOutputs/Shooter/Shooter Pivot Intended Position",
             };
 
+
             HashMap<String, Integer> columnIndexes = new HashMap<>();
             for (int i = 0; i < nextLine.length; i++) {
                 for (String c : columns) {
