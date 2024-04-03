@@ -9,14 +9,20 @@ public class Pearascope {
             CSVReader r = new CSVReader(new FileReader("Log_24-03-23_17-54-44_q44.csv"));
             String[] nextLine = r.readNext();
 
-            String[] columns = { "/RealOutputs/Transport/Ir Sensor", 
-                "/DriverStation/MatchTime", "/DriverStation/Autonomous", 
-                // "/DriverStation/MatchNumber", and also later get is red alliance
-                // get pviot angle and stuff too
+            String[] columns = { 
+                "/DriverStation/MatchNumber",
+                "/DriverStation/AllianceStation",
+                "/DriverStation/Autonomous", 
                 "/RealOutputs/Amp Bar/Amp Bar Position", 
+                "/DriverStation/MatchTime", 
+                "/RealOutputs/Transport/Ir Sensor", 
                 "/RealOutputs/Drivetrain/Odometry/rotation/value",
                 "/RealOutputs/Drivetrain/Odometry/translation/x", 
-                "/RealOutputs/Drivetrain/Odometry/translation/y" };
+                "/RealOutputs/Drivetrain/Odometry/translation/y",
+                "/RealOutputs/Shooter/Note Velocity",
+                "/RealOutputs/Shooter/Shooter Pivot Position",
+                "/RealOutputs/Shooter/Shooter Pivot Intended Position",
+             };
 
             HashMap<String, Integer> columnIndexes = new HashMap<>();
             for (int i = 0; i < nextLine.length; i++) {
