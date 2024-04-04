@@ -5,7 +5,7 @@ import com.opencsv.CSVWriter;
 
 public class Pearascope {
     public static void main(String[] args) {
-        String fileName = "../Log_24-03-23_14-23-19_q20.csv"; // <-- Change to use
+        String fileName = "../Log_24-04-04_13-38-58_q2.csv"; // <-- Change to use
         long time = System.currentTimeMillis();
         try {
             CSVReader r = new CSVReader(new FileReader(fileName));
@@ -21,8 +21,8 @@ public class Pearascope {
                     "Autonomous/Teleop", "Speaker/Amp",
                     "Pivot Intended Position", "Pivot Actual Position",
                     "Left Shooter RPM", "Right Shooter RPM",
-                    "Limelight Ambiguity", "Battery Voltage",
-                    // "Match Number", "Alliance" 
+                    "Match Number", "Alliance", 
+                    // "Limelight Ambiguity", "Battery Voltage",
             };
 
             CSVWriter w = new CSVWriter(new FileWriter("Output.csv"));
@@ -35,7 +35,8 @@ public class Pearascope {
 
             while ((nextLine = r.readNext()) != null) { // reads next line until it runs out of rows in logs
                 // if in match and whether the robot has a note changes
-                if (Integer.parseInt(nextLine[columnIndexes.get("/DriverStation/MatchTime")]) > 0) {
+                if (Integer.parseInt(nextLine[columnIndexes.get("/DriverStation/MatchTime")]) > 0 
+                    && nextLine[columnIndexes.get("/DriverStation/Enabled")].equals("true")) {
                     if (nextLine[columnIndexes.get("/RealOutputs/Transport/Ir Sensor")].equals("true") != hasNote) {
                         hasNote = !hasNote; // updates local variable
 
@@ -49,16 +50,17 @@ public class Pearascope {
                             output.add(nextLine[columnIndexes.get("/DriverStation/Autonomous")]
                             .equals("true") ? "Autonomous" : "Teleop");
                             output.add(Double.parseDouble(nextLine[columnIndexes.get
-                                ("/RealOutputs/Amp Bar/Amp Bar Position")]) > 5 ? "Amp" : "Speaker");
+                                ("/RealOutputs/Amp Bar/Amp Bar Position")]) > -5 ? "Amp" : "Speaker"); 
+                            // beta goes from -20 to 0
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Pivot Intended Position")]);
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Pivot Position")]);
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Left Speed")]);
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Right Speed")]);
-                            output.add(nextLine[columnIndexes.get("/RealOutputs/Limelight/Single Tag Ambiguity")]);
-                            output.add(nextLine[columnIndexes.get("/SystemStats/BatteryVoltage")]);                            
-                            // output.add(nextLine[columnIndexes.get("/DriverStation/MatchNumber")]);
-                            // output.add(Integer.parseInt(nextLine[columnIndexes.get
-                            //     ("/DriverStation/AllianceStation/DriverStation")]) > 3 ? "Red" : "Blue");
+                            output.add(nextLine[columnIndexes.get("/DriverStation/MatchNumber")]);
+                            output.add(Integer.parseInt(nextLine[columnIndexes.get
+                                ("/DriverStation/AllianceStation")]) <= 3 ? "Red" : "Blue");
+                            // output.add(nextLine[columnIndexes.get("/RealOutputs/Limelight/Single Tag Ambiguity")]);
+                            // output.add(nextLine[columnIndexes.get("/SystemStats/BatteryVoltage")]);                            
 
                             // converts output to String[] and writes it to output
                             w.writeNext(Arrays.copyOf(output.toArray(), output.size(), String[].class));
