@@ -5,10 +5,10 @@ import com.opencsv.CSVWriter;
 
 public class Pearascope {
     public static void main(String[] args) {
-        String fileName = "../Log_24-04-04_13-38-58_q2.csv"; // <-- Change to use
+        String fileName = "Log_24-04-04_19-04-17_q27_re.csv"; // <-- Change to use
         long time = System.currentTimeMillis();
         try {
-            CSVReader r = new CSVReader(new FileReader(fileName));
+            CSVReader r = new CSVReader(new FileReader("../" + fileName));
             String[] nextLine = r.readNext();
 
             // creates a hashmap of indexes of the logs' columns (which column has what)
@@ -22,10 +22,11 @@ public class Pearascope {
                     "Pivot Intended Position", "Pivot Actual Position",
                     "Left Shooter RPM", "Right Shooter RPM",
                     "Match Number", "Alliance", 
-                    // "Limelight Ambiguity", "Battery Voltage",
+                    "Battery Voltage",
+                    // "Limelight Ambiguity", 
             };
-
-            CSVWriter w = new CSVWriter(new FileWriter("Output.csv"));
+            
+            CSVWriter w = new CSVWriter(new FileWriter(fileName.substring(fileName.lastIndexOf("q"))));
             w.writeNext(headers); // writes headers to first row of output
             
             ArrayList<String> output = new ArrayList<>();
@@ -59,8 +60,8 @@ public class Pearascope {
                             output.add(nextLine[columnIndexes.get("/DriverStation/MatchNumber")]);
                             output.add(Integer.parseInt(nextLine[columnIndexes.get
                                 ("/DriverStation/AllianceStation")]) <= 3 ? "Red" : "Blue");
+                            output.add(nextLine[columnIndexes.get("/SystemStats/BatteryVoltage")]);                            
                             // output.add(nextLine[columnIndexes.get("/RealOutputs/Limelight/Single Tag Ambiguity")]);
-                            // output.add(nextLine[columnIndexes.get("/SystemStats/BatteryVoltage")]);                            
 
                             // converts output to String[] and writes it to output
                             w.writeNext(Arrays.copyOf(output.toArray(), output.size(), String[].class));
@@ -73,7 +74,7 @@ public class Pearascope {
             r.close();
             w.close();
             
-            System.out.println("Done! Check Output.csv");
+            System.out.println("Done! Check " + fileName.substring(fileName.lastIndexOf("q")));
             System.out.println("Took " + ((System.currentTimeMillis() - time) / 1000.0) + "s");
         } catch (Exception e) {
             e.printStackTrace();
