@@ -26,15 +26,19 @@ public class PearaDiSe {
             boolean brownedOut = false; 
             int brownOutCounter = 0;
             int lineCounter = 0;
+            double totalPDP_sum = 0;
 
             while ((nextLine = r.readNext()) != null) { 
                 lineCounter++;
                 if (nextLine[columnIndexes.get("Brownout")].equals("True")) {
                     brownOutCounter++;
                 }
+                totalPDP_sum += Double.parseDouble(nextLine[columnIndexes.get("Total PDP")]) * Double.parseDouble(nextLine[columnIndexes.get("Voltage")]);
             }
-            
+            totalPDP_sum *= 0.00000556 * 3.6;
+
             System.out.println("Found " + brownOutCounter + " brownouts");
+            System.out.println("Total PDP " + totalPDP_sum + " kJ");
             System.out.println("Checked " + lineCounter + " lines");
             
             r.close();
