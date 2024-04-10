@@ -5,7 +5,7 @@ import com.opencsv.CSVWriter;
 
 public class Pearascope {
     public static void main(String[] args) {
-        String fileName = "Log_24-04-04_19-04-17_q27_re.csv"; // <-- Change to use
+        String fileName = "Log_24-04-06_11-30-01_e7.csv"; // <-- Change to use
         long time = System.currentTimeMillis();
         try {
             CSVReader r = new CSVReader(new FileReader("../" + fileName));
@@ -22,11 +22,11 @@ public class Pearascope {
                     "Pivot Intended Position", "Pivot Actual Position",
                     "Left Shooter RPM", "Right Shooter RPM",
                     "Match Number", "Alliance", 
-                    "Battery Voltage",
+                    "Battery Voltage", "Shooter Pivot Adj"
                     // "Limelight Ambiguity", 
             };
             
-            CSVWriter w = new CSVWriter(new FileWriter(fileName.substring(fileName.lastIndexOf("q"))));
+            CSVWriter w = new CSVWriter(new FileWriter("../dcmp_output/" + trim(fileName)));
             w.writeNext(headers); // writes headers to first row of output
             
             ArrayList<String> output = new ArrayList<>();
@@ -50,17 +50,20 @@ public class Pearascope {
                         if (!hasNote) { // logs these when the robot shoots and no longer has a note
                             output.add(nextLine[columnIndexes.get("/DriverStation/Autonomous")]
                             .equals("true") ? "Autonomous" : "Teleop");
+                            // beta amp pos goes from -20 to 0
                             output.add(Double.parseDouble(nextLine[columnIndexes.get
                                 ("/RealOutputs/Amp Bar/Amp Bar Position")]) > -5 ? "Amp" : "Speaker"); 
-                            // beta goes from -20 to 0
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Pivot Intended Position")]);
                             output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Pivot Position")]);
-                            output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Left Speed")]);
-                            output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Right Speed")]);
+                            // output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Left Speed")]);
+                            // output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Right Speed")]);
+                            output.add("?");
+                            output.add("?");
                             output.add(nextLine[columnIndexes.get("/DriverStation/MatchNumber")]);
                             output.add(Integer.parseInt(nextLine[columnIndexes.get
                                 ("/DriverStation/AllianceStation")]) <= 3 ? "Red" : "Blue");
                             output.add(nextLine[columnIndexes.get("/SystemStats/BatteryVoltage")]);                            
+                            output.add(nextLine[columnIndexes.get("/RealOutputs/Shooter/Shooter Pivot Adjust")]);                            
                             // output.add(nextLine[columnIndexes.get("/RealOutputs/Limelight/Single Tag Ambiguity")]);
 
                             // converts output to String[] and writes it to output
@@ -74,10 +77,21 @@ public class Pearascope {
             r.close();
             w.close();
             
-            System.out.println("Done! Check " + fileName.substring(fileName.lastIndexOf("q")));
+            System.out.println("Done! Check " + fileName.substring(fileName.lastIndexOf("e"))); // q or e
             System.out.println("Took " + ((System.currentTimeMillis() - time) / 1000.0) + "s");
         } catch (Exception e) {
             e.printStackTrace();
         }        
+    }
+    public static String trim(String s) {
+        if (s.lastIndexOf("q") != -1) {
+            return s.substring(s.lastIndexOf("q"));
+        } else if (s.lastIndexOf("e") != -1) {
+            return s.substring(s.lastIndexOf("e"));            
+        } else if (s.lastIndexOf("/") != -1) {
+            return s.substring(s.lastIndexOf("/") + 1);
+        } else {
+            return s;
+        }
     }
 }
