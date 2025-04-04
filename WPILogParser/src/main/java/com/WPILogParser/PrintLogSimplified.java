@@ -6,8 +6,6 @@ import edu.wpi.first.util.datalog.DataLogRecord;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,14 +42,12 @@ public final class PrintLogSimplified {
         VALUERAW,
         PIECE,
         ACTION,
-        ACTIONTIME,
+        ACTIONDATA,
         CYCLETIME,
         OUTCOME;
     }
 
     public static void main(String[] args) {
-        createOutputFolder();
-
         boolean generateRawDump = (args.length > 0 && args[0].toLowerCase().equals("-raw"));
         String[] finalArgs = (generateRawDump ? Arrays.copyOfRange(args, 1, args.length) : args);
 
@@ -64,8 +60,17 @@ public final class PrintLogSimplified {
         for (String logFilePath : filePaths) {
             if (generateRawDump) dumpRawLog(logFilePath);
 
-            System.out.println("Processing " + logFilePath);
+            if (logFilePath.endsWith(".xlsx")) { continue; }
+
             String outputFilePath = getOutputFilePath(logFilePath);
+
+            File file = new File(outputFilePath + ".xlsx");
+            if (file.exists()) {
+                System.out.println("Output already exists for " + logFilePath);
+                continue;
+            }
+
+            System.out.println("Processing " + logFilePath);
 
             DataLogReader reader;
             try {
@@ -81,7 +86,7 @@ public final class PrintLogSimplified {
 
             XSSFWorkbook workbook = new XSSFWorkbook();
             XSSFSheet sheet = workbook.createSheet("data");
-            String[] headers = new String[] {"Timestamp", "Period", "M_Time", "ID", "Entry", "Type", "Value", "Value_RAW", "Piece", "Action", "Time", "Cycle", "Outcome"};
+            String[] headers = new String[] {"Timestamp", "Period", "M_Time", "ID", "Entry", "Type", "Value", "Value_RAW", "Piece", "Action", "T/Val", "Cycle", "Outcome"};
             int rowIndex = addOutputHeader(sheet, 0, headers);
 
             int records = 0;
@@ -252,11 +257,10 @@ public final class PrintLogSimplified {
             matchPrefix = "20" + year + match;
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss");
-        String formattedDateTime = now.format(formatter);
-        String outputFilePath = "./output/" + matchPrefix + "." + formattedDateTime;
-        return outputFilePath;
+        File file = new File(logFilePath);
+        String folderPath = file.getParent();
+
+        return folderPath + "\\" + matchPrefix;
     }
 
     private static List<String> getFilePaths(String[] args) {
@@ -313,6 +317,7 @@ public final class PrintLogSimplified {
         setCellValue(row, COLUMN.TIMESTAMP, record.getTimestamp() / 1000000.0);
         setCellValue(row, COLUMN.MATCHPERIOD, matchPeriod);
         setCellValue(row, COLUMN.MATCHTIME, matchTime);
+        setCellValue(row, COLUMN.MATCHTIME, String.format("%02d:%02d", (int)matchTime / 60, (int)matchTime % 60));
         setCellValue(row, COLUMN.ID, record.getEntry());
         setCellValue(row, COLUMN.ENTRY, entry.name);
         setCellValue(row, COLUMN.DATATYPE, entry.type);
@@ -349,7 +354,7 @@ public final class PrintLogSimplified {
             }
             else if(getCellString(row, COLUMN.VALUE) == "intake done" && startRow > 0) {
                 setCellValue(row, COLUMN.ACTION, "Time to intake");
-                setCellFormula(row, COLUMN.ACTIONTIME, "A" + r + "-A" + startRow);
+                setCellFormula(row, COLUMN.ACTIONDATA, "A" + r + "-A" + startRow);
                 startRow = 0;
             }
         }
@@ -367,7 +372,7 @@ public final class PrintLogSimplified {
             } else if((getCellString(row, COLUMN.VALUE) == "intake done" || getCellString(row, COLUMN.VALUE) == "outtake") && startRow > 0 && endRow > startRow) {
                 Row row2 = sheet.getRow(endRow - 1);
                 setCellValue(row2, COLUMN.ACTION, "Time spent strafing");
-                setCellFormula(row2, COLUMN.ACTIONTIME, "A" + endRow + "-A" + startRow);
+                setCellFormula(row2, COLUMN.ACTIONDATA, "A" + endRow + "-A" + startRow);
                 startRow = 0;
                 endRow = 0;
             } else if (getCellString(row, COLUMN.VALUE).contains("strafe")) {
@@ -397,7 +402,7 @@ public final class PrintLogSimplified {
                 startRow = r;
             } else if (getCellString(row, COLUMN.VALUE) == "outtake" && startRow > 0) {
                 setCellValue(row, COLUMN.ACTION, "In to out");
-                setCellFormula(row, COLUMN.ACTIONTIME, "A" + r + "-A" + startRow);
+                setCellFormula(row, COLUMN.ACTIONDATA, "A" + r + "-A" + startRow);
                 String outcome = piece;
                 if (piece.equals("CORAL") && level.length() > 0) outcome += " " + level;
                 setCellValue(row, COLUMN.OUTCOME, outcome);
@@ -422,7 +427,7 @@ public final class PrintLogSimplified {
                 } else if (!getCellString(row, COLUMN.VALUE).contains("align") && startRow > 0 && endRow > startRow) {
                     Row row2 = sheet.getRow(endRow - 1);
                     setCellValue(row2, COLUMN.ACTION, "Time spent aligning");
-                    setCellFormula(row2, COLUMN.ACTIONTIME, "A" + endRow + "-A" + startRow);
+                    setCellFormula(row2, COLUMN.ACTIONDATA, "A" + endRow + "-A" + startRow);
                     startRow = 0;
                     endRow = 0;
                 } else if (getCellString(row, COLUMN.VALUE) == "(align release)") {
@@ -458,7 +463,7 @@ public final class PrintLogSimplified {
                 }
             } else if(getCellString(row, COLUMN.VALUE).equals("ELEV HOME")) {
                 setCellValue(row, COLUMN.ACTION, "Elevator homed/zeroed");
-                setCellValue(row, COLUMN.ACTIONTIME, offset);
+                setCellValue(row, COLUMN.ACTIONDATA, offset);
             }
         }
     }
@@ -477,12 +482,12 @@ public final class PrintLogSimplified {
                 } else if ((!getCellString(row, COLUMN.VALUE).startsWith("climb") && endRow > startRow)) {
                     Row row2 = sheet.getRow(endRow - 1);
                     setCellValue(row2, COLUMN.ACTION, "Time spent climbing");
-                    setCellFormula(row2, COLUMN.ACTIONTIME, "A" + endRow + "-A" + startRow);
+                    setCellFormula(row2, COLUMN.ACTIONDATA, "A" + endRow + "-A" + startRow);
                     startRow = 0;
                     endRow = 0;
                 } else if (r == maxRow && startRow > 0) {
                     setCellValue(row, COLUMN.ACTION, "Time spent climbing");
-                    setCellFormula(row, COLUMN.ACTIONTIME, "A" + r + "-A" + startRow);
+                    setCellFormula(row, COLUMN.ACTIONDATA, "A" + r + "-A" + startRow);
                     startRow = 0;
                     endRow = 0;
                 } else if (getCellString(row, COLUMN.VALUE).startsWith("climb") && r < maxRow) {
@@ -552,7 +557,7 @@ public final class PrintLogSimplified {
         DataFormat dataFormat = workbook.createDataFormat();
         cellStyle.setDataFormat(dataFormat.getFormat("#,##0.00"));
         for (int i = 1; i < maxRow; i++) {
-            Cell time = sheet.getRow(i).getCell(COLUMN.ACTIONTIME.ordinal());
+            Cell time = sheet.getRow(i).getCell(COLUMN.ACTIONDATA.ordinal());
             if (time != null) time.setCellStyle(cellStyle);
             Cell cycle = sheet.getRow(i).getCell(COLUMN.CYCLETIME.ordinal());
             if (cycle != null) cycle.setCellStyle(cellStyle);
@@ -568,7 +573,7 @@ public final class PrintLogSimplified {
         sheet.setColumnWidth(COLUMN.VALUERAW.ordinal(), 12 * 256);
         sheet.setColumnWidth(COLUMN.PIECE.ordinal(), 8 * 256);
         sheet.setColumnWidth(COLUMN.ACTION.ordinal(), 17 * 256);
-        sheet.setColumnWidth(COLUMN.ACTIONTIME.ordinal(), 7 * 256);
+        sheet.setColumnWidth(COLUMN.ACTIONDATA.ordinal(), 7 * 256);
         sheet.setColumnWidth(COLUMN.CYCLETIME.ordinal(), 7 * 256);
         sheet.setColumnWidth(COLUMN.OUTCOME.ordinal(), 20 * 256);
 
@@ -663,13 +668,6 @@ public final class PrintLogSimplified {
         row = sheet.createRow(maxRow + 6);
         row.createCell(0).setCellValue("Game pieces handled");
         row.createCell(2).setCellFormula("SUMPRODUCT((I2:I" + maxRow + "<>\"\")/COUNTIF(I2:I" + maxRow + ", I2:I" + maxRow + "&\"\"))");
-    }
-
-    private static void createOutputFolder() {
-        File folder = new File(System.getProperty("user.dir"), "output");
-        if (!folder.exists()) {
-            folder.mkdir();
-        }
     }
 
     private static void dumpRawLog(String logFilePath) {
