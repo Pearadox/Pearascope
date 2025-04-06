@@ -6,6 +6,16 @@ import edu.wpi.first.util.datalog.DataLogRecord;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,6 +58,66 @@ public final class PrintLogSimplified {
     }
 
     public static void main(String[] args) {
+        boolean enableMonitoring = (args.length > 0 && args[0].toLowerCase().equals("-monitor"));
+        if (enableMonitoring) {
+            // just monitor the input folder for new logs
+            Path folder = Paths.get("./input");
+
+            try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
+                folder.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
+
+                System.out.println("Monitoring folder: " + folder.toAbsolutePath());
+
+                while (true) {
+                    WatchKey key = watchService.take();
+
+                    for (WatchEvent<?> event : key.pollEvents()) {
+                        WatchEvent.Kind<?> kind = event.kind();
+
+                        if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
+                            Path filename = (Path) event.context();
+                            Path filePath = folder.resolve(filename);
+                            if (filePath.toAbsolutePath().toString().toLowerCase().endsWith(".wpilog")) {
+                                while (!isFileCompletelyWritten(filePath)) {
+                                    System.out.println("File " + filePath + " is still being written...");
+                                    Thread.sleep(500);
+                                }
+                                processLogs(new String[] { filePath.toAbsolutePath().toString() });
+                            }
+                        }
+                    }
+
+                    // Reset the key to receive further watch events
+                    boolean valid = key.reset();
+                    if (!valid) {
+                        System.out.println("Watch key no longer valid, exiting...");
+                        break;
+                    }
+                }
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        } else {
+            processLogs(args);
+        }
+    }
+
+    private static boolean isFileCompletelyWritten(Path path) {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            FileLock lock = channel.tryLock(0, Long.MAX_VALUE, true);
+            if (lock != null) {
+                lock.release();
+                channel.close();
+                return true;
+            }
+            channel.close();
+        } catch (IOException e) {
+            // File is likely still being written
+        }
+        return false;
+    }
+
+    private static void processLogs(String []args) {
         boolean generateRawDump = (args.length > 0 && args[0].toLowerCase().equals("-raw"));
         String[] finalArgs = (generateRawDump ? Arrays.copyOfRange(args, 1, args.length) : args);
 
@@ -60,7 +130,7 @@ public final class PrintLogSimplified {
         for (String logFilePath : filePaths) {
             if (generateRawDump) dumpRawLog(logFilePath);
 
-            if (logFilePath.endsWith(".xlsx")) { continue; }
+            if (!logFilePath.endsWith(".wpilog")) { continue; }
 
             String outputFilePath = getOutputFilePath(logFilePath);
 
@@ -158,10 +228,17 @@ public final class PrintLogSimplified {
 
             System.out.println(records + " records processed [" + maxRow + " rows in output]");
         }
+
+        // this should not be necessary, but if monitoring is enabled, because DataLogReader doesn't properly close and dispose of the file handle, we need to encourage garbage collection to dispose of the handle
+        System.gc(); 
+        try {
+            Thread.sleep(100); // Let GC settle
+        } catch (InterruptedException e) {
+            // Ignore
+        }
     }
 
-    private static int outputEntriesOfInterest(XSSFSheet sheet, int rowIndex, String matchPeriod, double matchTime, DataLogRecord record,
-            DataLogRecord.StartRecordData entry) {
+    private static int outputEntriesOfInterest(XSSFSheet sheet, int rowIndex, String matchPeriod, double matchTime, DataLogRecord record, DataLogRecord.StartRecordData entry) {
         if(entry.name.equals("/RealOutputs/EE/Has Coral")) {
             if(record.getBoolean()) {
                 addOutputRow(sheet, ++rowIndex, matchPeriod, matchTime, record, entry, "intake done");
@@ -186,6 +263,12 @@ public final class PrintLogSimplified {
                 }
                 addOutputRow(sheet, ++rowIndex, matchPeriod, matchTime, record, entry, alignStr, vals[0]);
             }
+        }
+
+        if(entry.name.equals("/RealOutputs/Align/Error/IsAligned") || entry.name.equals("/RealOutputs/Align/Error/IsAlignedTest")) {
+            String aligned = (record.getBoolean() ? "Aligned" : "Not aligned");
+            Row row = addOutputRow(sheet, ++rowIndex, matchPeriod, matchTime, record, entry, String.valueOf(record.getBoolean()));
+            // setCellValue(row, COLUMN.ACTION, aligned);
         }
 
         // 16 = intake, 32 = outtake, 1 = slow toggle
